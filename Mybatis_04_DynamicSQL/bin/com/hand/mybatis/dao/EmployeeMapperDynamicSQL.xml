@@ -1,0 +1,213 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.hand.mybatis.dao.EmployeeMapperDynamicSQL">
+
+   <!-- • if
+    • choose (when, otherwise)：分支选择，swtich-case
+           如果带了eid就用eid查询，如果带了eName就用eName查询，只会进入其中一个
+    • trim 字符串截取(where(封装查询条件), set（封装修改条件）)
+    • foreach -->
+  
+  
+   <!-- //使用if -->
+   <!--  public List<Employee> getEmpsByconditionIf(Employee employee); -->
+   <!-- 查询员工，要求，携带了那个字段查询条件就带上那个字段的值 -->
+   <select id="getEmpsByconditionIf" resultType="com.hand.mybatis.bean.Employee">
+        select * from emp
+        <where>
+        <!-- where 1=1  --><!-- test,判断表达式（OGNL） 
+                                                        从参数中取值判断，遇见特殊符号去写转义字符
+                      w3c:  ISO 8859-1
+                      &&,&amp;&amp; 
+                      "" &quot;&quot;-->
+        <if test="eId!=null">
+             eid=#{eId}
+        </if>
+        <if test="eName!=null  &amp;&amp; eName!= &quot;&quot;">
+             and ename like #{eName}
+        </if>
+        <if test="email!=null and email.trim()!=&quot;&quot;">
+             and email=#{email}  
+        </if>
+        <!--  ognl会进行字符串与数字的转换判断“0”==0 -->
+        <if test="gender==0 or gender==1">
+              and gender=#{gender}
+        </if>
+        </where>   
+   </select>
+   
+   
+   <!-- 使用trim -->
+   <!-- List<Employee> getEmpsByconditionTrim(Employee employee); -->
+   <select id="getEmpsByconditionTrim" resultType="com.hand.mybatis.bean.Employee">
+        select * from emp
+        <!--后面多出来的and或者or where 标签不能解决 
+        trim标签中是整个字符串拼接后的结果
+            prefix=""：给拼接后的整个字符串加一个前缀
+            prefixOverrides=""：前缀覆盖，去掉整个字符串前面多余的字符
+            suffix="":后缀 suffix给拼接后的整个字符串加一个后缀
+            suffixOverrides="" 后缀覆盖，去掉整个字符串后面多余的字符-->
+         
+         <!-- 自定义字符串的截取规则 -->   
+        <trim prefix="where" suffixOverrides="and">
+        <if test="eId!=null">
+             eid=#{eId} and
+        </if>
+        <if test="eName!=null  &amp;&amp; eName!= &quot;&quot;">
+             ename like #{eName} and
+        </if>
+        <if test="email!=null and email.trim()!=&quot;&quot;">
+            email=#{email}  and
+        </if>
+        <!--  ognl会进行字符串与数字的转换判断“0”==0 -->
+        <if test="gender==0 or gender==1">
+             gender=#{gender}
+        </if>
+        </trim>
+        
+   </select>
+   
+   
+    <!-- //使用choose
+	List<Employee> getEmpsByconditionChoose(Employee employee); -->
+	<select id="getEmpsByconditionChoose" resultType="com.hand.mybatis.bean.Employee">
+	    select * from emp
+	    <where>
+	          <!--  如果带了eid就用eid查询，如果带了eName就用eName查询，只会进入其中一个 -->
+	          <choose>
+	               <when test="eId!=null">
+	                  eid=#{eId}
+	               </when>
+	               <when test="eName!=null">
+	                  ename=#{eName}
+	               </when>
+	               <when test="gender!=null">
+	                  gender=#{gender}
+	               </when>
+	               <when test="email!=null">
+	                  email=#{email}
+	               </when>
+	               <otherwise>
+	                     1=1
+	               </otherwise>
+	          </choose>
+	    </where>
+	</select>
+	
+	
+	<!-- //跟新字段   传那个字段跟新那个字段(使用set)
+	void updateEmp(Employee employee); -->
+	<update id="updateEmp">
+	     UPDATE emp 
+	     
+	     <set>  <!--  //方法一：使用set标签去掉多余的，号 -->
+	     <if test="eName!=null">
+	       ename=#{eName},
+	     </if>
+	     <if test="gender!=null">
+	      gender=#{gender},
+	     </if>
+	     <if test="email">
+	      email=#{email}
+	     </if>
+	     </set>
+	     
+	     <!-- 方法二：使用trim标签去掉多余的,号 
+	     <trim prefix="set" suffixOverrides=",">
+	     <if test="eName!=null">
+	       ename=#{eName},
+	     </if>
+	     <if test="gender!=null">
+	      gender=#{gender},
+	     </if>
+	     <if test="email">
+	      email=#{email}
+	      </if>
+	      </trim>  -->
+         WHERE eid=#{eId}
+	</update>
+	
+	
+	 <!-- //根据list集合条件，查询集合（foreach遍历list集合条件）
+	 List<Employee> getEmpsByConditionForeach(List<Integer> idlist); -->
+	 <select id="getEmpsByConditionForeach" resultType="com.hand.mybatis.bean.Employee">
+	  <!--  select * from emp where eid in(101,102,103) 方法一：in（1,2,3）-->
+	   select * from emp where eid in
+	   <!-- 
+	      collection:指定要遍历的集合
+	        list类型的参数会特殊处理封装在map中，map的key就是list
+	      item:将当前遍历的元素赋值给指定的变量
+	      separator:每个元素之间的分隔符
+	      open:遍历出所有结果拼接一个开始的字符
+	      close:遍历出所有结果拼接一个结束的字符
+	      index：索引，遍历list的时候，index就是索引，item就是当前值
+	                                                 遍历map的时候index表示就是map的key,item就是map的值
+	      #{变量名}：每个元素之间的分隔符
+	    -->
+	   <foreach collection="idlist" item="itemid" separator=","
+	   open="(" close=")">
+	     #{itemid}
+	   </foreach>
+	 </select>
+	 
+	 
+	 <!-- 批量保存(foreach插入多条数据两种方法)
+	   int addEmpsBatch(@Param("emps") List<Employee> emps); -->
+	 <!-- MySQL下批量保存，可以foreach遍历 mysql支持values(),(),()语法 -->
+	 <insert id="addEmpsBatch">
+	 <!--  INSERT INTO emp(ename,gender,email,did) -->
+	  INSERT INTO emp(
+	    <!--   引用外部定义的sql -->
+	    <include refid="insertColumn"></include>
+	  ) 
+      VALUES
+      <foreach collection="emps" item="emp" separator=",">
+      (#{emp.eName},#{emp.gender},#{emp.email},#{emp.dept.id})
+      </foreach>
+	 </insert>
+	 
+	 <!-- 这种方式需要数据库连接属性allowMutiQueries=true的支持 -->
+	<!--  <insert id="addEmpsBatch">
+	   <foreach collection="emps" item="emp" separator=";">
+	     INSERT INTO emp(ename,gender,email,did)
+         VALUES(#{emp.eName},#{emp.gender},#{emp.email},#{emp.dept.id})
+      </foreach>
+	 </insert> -->
+	 
+	 <!-- mybatis动态sql的两个内置参数
+	       不只是方法传递过来的参数可以被用来判断，取值
+	   mybatis默认还有两个内置参数
+	       _parameter:代表整个参数
+	                                  单个参数：_parameter就是这个参数
+	                                  多个参数：参数会被封装为一个map:_parameter就是代表这个map             
+	       _databaseId:如果配置了databaseIdProvider标签
+	            _databaseId 就是代表当前数据库的别名Oracle
+	  -->
+	  
+	  
+	  <!-- List<Employee> getEmpsTestInnerParameter(Employee employee); -->
+	  <select id="getEmpsTestInnerParameter" resultType="com.hand.mybatis.bean.Employee">
+	      <!-- bind:可以将OGNL表达式的值绑定到一个变量中，方便后来引用这个变量的值 -->
+	      <bind name="bindeName" value="'%'+eName+'%'"/>
+	      SELECT * FROM emp 
+	      <if test="_parameter!=null">
+	        <!-- where ename=#{_parameter.eName} -->
+	        where ename like #{bindeName}
+	      </if>
+	  </select>
+	  
+	  
+	  <!-- 抽取可重用的SQL片段，方便后面引用 
+	      1.sql抽取，经常将要查询的列名，或者插入用的列名，之后方便引用
+	      2.include来引用已经抽取的sql
+	  
+	  -->
+	  <sql id="insertColumn">
+	        ename,gender,email,did
+	  </sql>
+	 
+	 
+
+</mapper>

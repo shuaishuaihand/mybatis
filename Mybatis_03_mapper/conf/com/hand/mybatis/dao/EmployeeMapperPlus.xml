@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.hand.mybatis.dao.EmployeeMapperPlus">
+
+<!-- 自定义某个javaBean的封装规则
+      type:自定义规则的java类型
+      id:唯一id方便引用 -->
+<resultMap type="com.hand.mybatis.bean.Employee" id="myemp">
+   <!-- 指定主键列的封装规则 
+      id:定义主键底层会有优化
+      column:指定哪一列
+      property:指定对应的javabean属性
+   -->
+   <id column="eid" property="eId"/>
+   <result column="ename" property="eName"/>
+   <result column="gender" property="gender"/>
+   <result column="email" property="email"/>
+</resultMap>
+
+
+
+  <!-- Employee selectEmployee(Integer eid); -->
+ <select id="selectEmployee" resultMap="myemp">
+  SELECT * FROM emp WHERE eid=#{eid}
+ </select>
+  
+  <!-- 查询Employee的同时查询员工对应的部门
+     Employee==Department
+     一个员工有与之对应的部门信息
+     
+   -->
+   <!-- 1.关联查询 级联属性封装结果集-->
+   <resultMap type="com.hand.mybatis.bean.Employee" id="myemp1">
+   <id column="eid" property="eId"/>
+   <result column="ename" property="eName"/>
+   <result column="gender" property="gender"/>
+   <result column="email" property="email"/>
+   <result column="did" property="dept.id"/>
+   <result column="deptname" property="dept.departName"/>
+   </resultMap>
+   
+     <!-- 2.使用association定义单个对象的封装规则
+     -->
+   <resultMap type="com.hand.mybatis.bean.Employee" id="myemp2">
+   <id column="eid" property="eId"/>
+   <result column="ename" property="eName"/>
+   <result column="gender" property="gender"/>
+   <result column="email" property="email"/>
+   <!--  assosiation可以指定javaBean对象
+         property="dept":指定哪一个是关联的对象
+         javaType:指定这个属性对象的类型[不能省略] -->
+     <association property="dept" javaType="com.hand.mybatis.bean.Department">
+             <id column="did" property="id"/>
+             <result column="deptname" property="departName"/>
+     </association>          
+   
+   </resultMap>
+   
+  <!-- Employee getEmpAndDept(Integer eid);   -->
+  <select id="getEmpAndDept" resultMap="myemp2">
+     select emp.eid,emp.ename,emp.gender,emp.email,dept.did,dept.deptname
+     from emp,dept
+     WHERE emp.did=dept.did AND
+     emp.eid=#{eid}
+ </select>
+ 
+ <!-- 使用association进行分步查询
+     1.先按照员工id查询员工信息
+     2.根据查询员工信息中的did值去部门查询部门信息
+     3.部门设置到员工中 -->
+   <resultMap type="com.hand.mybatis.bean.Employee" id="myempStep">
+   <id column="eid" property="eId"/>
+   <result column="ename" property="eName"/>
+   <result column="gender" property="gender"/>
+   <result column="email" property="email"/>
+   <!-- association定义关联对象的封装规则
+       select:表明当前属性调用select指定的方法查询结果
+       column:指定将那一列的值传给这个方法-->
+    <!--  !!!有问题查不出来结果 -->
+    <association property="dept"
+        select="com.hand.mybatis.dao.DepartmentMapper.getDeptById"
+        column="did">
+    </association>
+   </resultMap>   
+   
+   <!--Employee getEmpByIdStep(Integer eid); -->
+   <select id="getEmpByIdStep" resultMap="myempStep">
+      select * from emp where eid=#{eid}
+   </select>
+   
+   
+   <!-- discriminator鉴别器 -->
+   <resultMap type="com.hand.mybatis.bean.Employee" id="mydepDis">
+   <id column="eid" property="eId"/>
+   <result column="ename" property="eName"/>
+   <result column="gender" property="gender"/>
+   <result column="email" property="email"/>
+   
+   <!-- 
+        column:指定判断的列名
+        javaType:列值对应的java类型 -->
+    <discriminator javaType="string" column="gender">
+        <!-- 女生 resultType:指定封装的结果类型,不能缺少，resultMap -->
+        <case value="0" resultType="com.hand.mybatis.bean.Employee">
+             <association property="dept"
+                 select="com.hand.mybatis.dao.DepartmentMapper.getDeptById"
+                 column="did">
+             </association>
+        </case>
+        <!-- 男生 ：如果是男生，把last_name这一列的值赋值给email-->
+        <case value="1" resultType="com.hand.mybatis.bean.Employee">
+             <id column="eid" property="eId"/>
+             <result column="ename" property="eName"/>
+             <result column="gender" property="gender"/>
+             <result column="eName" property="email"/>
+        </case>
+    </discriminator>
+   </resultMap>
+   
+   <!--Employee getEmpByIdDis(Integer eid); -->
+   <select id="getEmpByIdDis" resultMap="mydepDis">
+      select * from emp where eid=#{eid}
+   </select>
+   
+</mapper>
